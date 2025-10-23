@@ -86,7 +86,7 @@ export default function ReviewDetailsModal({ review, onClose, onEdit }: ReviewDe
             <div className="flex items-center justify-center mt-2 text-yellow-500">
               {review.starRating !== undefined &&
                 Array.from({ length: 5 }).map((_, i) => (
-                  <Star key={i} className={`h-6 w-6 ${i < Math.floor(review.starRating) ? "fill-current" : ""}`} />
+                  <Star key={i} className={`h-6 w-6 ${i < Math.floor(review.starRating!) ? "fill-current" : ""}`} />
                 ))}
               <span className="ml-2 text-lg font-bold text-gray-800">({review.starRating?.toFixed(1)} / 5 Stelle)</span>
             </div>

@@ -19,7 +19,6 @@ import {
   clearReviewDraft,
   type ReviewDraft,
 } from "@/lib/local-storage"
-import { generateReviewPdf } from "@/lib/pdf-generator"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import ReviewDetailsModal from "./review-details-modal"
 
@@ -176,14 +175,14 @@ export default function RestaurantReviewForm() {
       const updatedReviews = savedReviews.map((review) =>
         review.id === editingReviewId
           ? {
-              ...review,
-              restaurantName,
-              participants,
-              categories,
-              scores: currentScores,
-              averageScore,
-              starRating,
-            }
+            ...review,
+            restaurantName,
+            participants,
+            categories,
+            scores: currentScores,
+            averageScore,
+            starRating,
+          }
           : review,
       )
       localStorage.setItem("restaurant_reviews", JSON.stringify(updatedReviews))
@@ -245,18 +244,6 @@ export default function RestaurantReviewForm() {
     }
   }, [resetForm])
 
-  const handleGeneratePdf = useCallback((reviewToPdf: Review) => {
-    if (
-      !reviewToPdf.restaurantName ||
-      reviewToPdf.participants.length === 0 ||
-      reviewToPdf.categories.length === 0 ||
-      reviewToPdf.scores.length === 0
-    ) {
-      alert("Nessun dato da generare in PDF.")
-      return
-    }
-    generateReviewPdf(reviewToPdf)
-  }, [])
 
   return (
     <div className="container mx-auto p-4 max-w-4xl">
@@ -441,7 +428,7 @@ export default function RestaurantReviewForm() {
                           Array.from({ length: 5 }).map((_, i) => (
                             <Star
                               key={i}
-                              className={`h-5 w-5 ${i < Math.floor(review.starRating) ? "fill-current" : ""}`}
+                              className={`h-5 w-5 ${i < Math.floor(review.starRating!) ? "fill-current" : ""}`}
                             />
                           ))}
                         <span className="ml-1 text-sm text-gray-800">({review.starRating?.toFixed(1)} / 5)</span>

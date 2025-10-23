@@ -1,4 +1,4 @@
-import RestaurantReviewForm from "./components/restaurant-review-form"
+import RestaurantReviewForm from "../components/restaurant-review-form"
 
 export default function App() {
   return (
