@@ -5,6 +5,10 @@
 [build.environment]
   NODE_VERSION = "22"
 
+# Disable Next.js plugin for Vite project
+[plugins]
+  # No plugins needed for Vite
+
 [[redirects]]
   from = "/*"
   to = "/index.html"
