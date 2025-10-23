@@ -1,15 +1,36 @@
 [build]
   command = "pnpm run build"
   publish = "dist"
+  functions = "netlify/functions"
 
 [build.environment]
   NODE_VERSION = "22"
+  NPM_FLAGS = "--version"
+  NPM_VERSION = "10.9.4"
 
-# Disable Next.js plugin for Vite project
+# Force Node.js runtime instead of Next.js
+[build.processing]
+  skip_processing = false
+
+# Disable all plugins to avoid Next.js interference
 [plugins]
-  # No plugins needed for Vite
 
+# SPA redirects for Vite
 [[redirects]]
   from = "/*"
   to = "/index.html"
   status = 200
+
+# Headers for better performance
+[[headers]]
+  for = "/*"
+  [headers.values]
+    X-Frame-Options = "DENY"
+    X-XSS-Protection = "1; mode=block"
+    X-Content-Type-Options = "nosniff"
+    Referrer-Policy = "strict-origin-when-cross-origin"
+
+[[headers]]
+  for = "/assets/*"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000, immutable"
