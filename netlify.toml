@@ -7,12 +7,12 @@
   NODE_VERSION = "22"
   NPM_FLAGS = "--version"
   NPM_VERSION = "10.9.4"
+  NETLIFY_NEXT_PLUGIN_SKIP = "true"
+  NEXT_TELEMETRY_DISABLED = "1"
 
-# Force Node.js runtime instead of Next.js
+# Force Vite/Node.js build without Next.js
 [build.processing]
-  skip_processing = false
-
-# No plugins needed for Vite project
+  skip_processing = true
 
 # SPA redirects for Vite
 [[redirects]]
