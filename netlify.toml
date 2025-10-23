@@ -12,8 +12,7 @@
 [build.processing]
   skip_processing = false
 
-# Disable all plugins to avoid Next.js interference
-[plugins]
+# No plugins needed for Vite project
 
 # SPA redirects for Vite
 [[redirects]]
