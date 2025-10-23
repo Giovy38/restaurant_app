@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Label } from "@/components/ui/label"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { Plus, Minus, Star, Trash2 } from "lucide-react"
+import { Plus, Minus, Star, Trash2, Eye } from "lucide-react"
 import { v4 as uuidv4 } from "uuid"
 import type { Review, Participant, Category, Score } from "@/types/review"
 import {
@@ -14,18 +14,17 @@ import {
   addReview,
   deleteReview,
   clearAllReviews,
-  saveReviewDraft, // Importa la nuova funzione
-  loadReviewDraft, // Importa la nuova funzione
-  clearReviewDraft, // Importa la nuova funzione
-  type ReviewDraft, // Importa il nuovo tipo
+  saveReviewDraft,
+  loadReviewDraft,
+  clearReviewDraft,
+  type ReviewDraft,
 } from "@/lib/local-storage"
-import { generateReviewPdf } from "@/lib/pdf-generator" // Mantenuto per inferenza, anche se non usato direttamente
+import { generateReviewPdf } from "@/lib/pdf-generator"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import ReviewDetailsModal from "./review-details-modal"
 
-// Genera tutti i valori possibili per i voti da 1 a 10 con incrementi di 0.25
 const scoreOptions = Array.from({ length: (10 - 1) * 4 + 1 }, (_, i) => (1 + i * 0.25).toFixed(2))
 
-// Categorie predefinite
 const predefinedCategoriesList = [
   "location",
   "varietà menu",
@@ -43,6 +42,8 @@ export default function RestaurantReviewForm() {
   const [averageScore, setAverageScore] = useState<number | null>(null)
   const [starRating, setStarRating] = useState<number | null>(null)
   const [savedReviews, setSavedReviews] = useState<Review[]>([])
+  const [selectedReview, setSelectedReview] = useState<Review | null>(null)
+  const [editingReviewId, setEditingReviewId] = useState<string | null>(null)
 
   useEffect(() => {
     setSavedReviews(loadReviews())
@@ -52,7 +53,6 @@ export default function RestaurantReviewForm() {
       setParticipants(draft.participants)
       setCategories(draft.categories)
       setCurrentScores(draft.scores)
-      // Potresti aggiungere un alert o un toast per informare l'utente che una bozza è stata caricata
     }
   }, [])
 
@@ -133,9 +133,9 @@ export default function RestaurantReviewForm() {
     const sumOfScores = filledScores.reduce((sum, score) => sum + score.score, 0)
     const avg = sumOfScores / filledScores.length
     setAverageScore(avg)
-    setStarRating(avg / 2) // Convert 1-10 to 1-5 stars
+    setStarRating(avg / 2)
 
-    clearReviewDraft() // Cancella la bozza dopo il calcolo dei voti
+    clearReviewDraft()
     alert("Voti calcolati e dati temporanei cancellati!")
   }, [currentScores, participants, categories])
 
@@ -146,7 +146,8 @@ export default function RestaurantReviewForm() {
     setCurrentScores([])
     setAverageScore(null)
     setStarRating(null)
-    clearReviewDraft() // Assicurati che anche il reset cancelli la bozza
+    setEditingReviewId(null)
+    clearReviewDraft()
   }, [])
 
   const handleSaveDraft = useCallback(() => {
@@ -166,24 +167,68 @@ export default function RestaurantReviewForm() {
       return
     }
     if (averageScore === null || starRating === null) {
-      alert("Per favor, calcola i voti prima di salvare.")
+      alert("Per favore, calcola i voti prima di salvare.")
       return
     }
 
-    const newReview: Review = {
-      id: uuidv4(),
-      restaurantName,
-      participants,
-      categories,
-      scores: currentScores,
-      averageScore,
-      starRating,
-      createdAt: new Date().toISOString(),
+    if (editingReviewId) {
+      // Modifica una recensione esistente
+      const updatedReviews = savedReviews.map((review) =>
+        review.id === editingReviewId
+          ? {
+              ...review,
+              restaurantName,
+              participants,
+              categories,
+              scores: currentScores,
+              averageScore,
+              starRating,
+            }
+          : review,
+      )
+      localStorage.setItem("restaurant_reviews", JSON.stringify(updatedReviews))
+      setSavedReviews(updatedReviews)
+      alert("Recensione aggiornata con successo!")
+    } else {
+      // Salva una nuova recensione
+      const newReview: Review = {
+        id: uuidv4(),
+        restaurantName,
+        participants,
+        categories,
+        scores: currentScores,
+        averageScore,
+        starRating,
+        createdAt: new Date().toISOString(),
+      }
+      addReview(newReview)
+      setSavedReviews(loadReviews())
+      alert("Recensione salvata con successo!")
     }
-    addReview(newReview)
-    setSavedReviews(loadReviews()) // Ricarica per assicurare che lo stato sia sincronizzato
-    resetForm() // Resetta il form dopo il salvataggio finale
-  }, [restaurantName, participants, categories, currentScores, averageScore, starRating, resetForm])
+    resetForm()
+  }, [
+    restaurantName,
+    participants,
+    categories,
+    currentScores,
+    averageScore,
+    starRating,
+    editingReviewId,
+    savedReviews,
+    resetForm,
+  ])
+
+  const handleEditReview = useCallback((review: Review) => {
+    setRestaurantName(review.restaurantName)
+    setParticipants(review.participants)
+    setCategories(review.categories)
+    setCurrentScores(review.scores)
+    setAverageScore(review.averageScore || null)
+    setStarRating(review.starRating || null)
+    setEditingReviewId(review.id)
+    setSelectedReview(null)
+    window.scrollTo({ top: 0, behavior: "smooth" })
+  }, [])
 
   const handleDeleteSavedReview = useCallback((id: string) => {
     if (confirm("Sei sicuro di voler cancellare questa recensione?")) {
@@ -196,11 +241,10 @@ export default function RestaurantReviewForm() {
     if (confirm("Sei sicuro di voler cancellare TUTTI i dati salvati? Questa azione è irreversibile.")) {
       clearAllReviews()
       setSavedReviews([])
-      resetForm() // Resetta anche il form corrente e la bozza
+      resetForm()
     }
   }, [resetForm])
 
-  // La funzione handleGeneratePdf è mantenuta per l'inferenza, ma non è più collegata a nessun pulsante
   const handleGeneratePdf = useCallback((reviewToPdf: Review) => {
     if (
       !reviewToPdf.restaurantName ||
@@ -217,6 +261,15 @@ export default function RestaurantReviewForm() {
   return (
     <div className="container mx-auto p-4 max-w-4xl">
       <h1 className="text-4xl font-bold text-center mb-8">Recensione Ristorante</h1>
+
+      {editingReviewId && (
+        <div className="mb-4 p-4 bg-blue-50 rounded-lg border border-blue-200">
+          <p className="text-blue-800 font-semibold">Stai modificando una recensione esistente</p>
+          <Button variant="outline" size="sm" onClick={resetForm} className="mt-2 bg-transparent">
+            Annulla modifica
+          </Button>
+        </div>
+      )}
 
       <Card className="mb-8">
         <CardHeader>
@@ -269,8 +322,6 @@ export default function RestaurantReviewForm() {
               </div>
             ))}
             <div className="flex flex-wrap gap-2 mt-2">
-              {" "}
-              {/* Modificato per flex-wrap */}
               <Button onClick={addCategory} variant="outline" className="bg-transparent">
                 <Plus className="h-4 w-4 mr-2" /> Aggiungi Categoria
               </Button>
@@ -283,46 +334,50 @@ export default function RestaurantReviewForm() {
           {participants.length > 0 && categories.length > 0 && (
             <div className="mb-6 overflow-x-auto">
               <Label className="mb-2 block">Inserisci i Voti (1-10)</Label>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead className="w-[150px]">Categoria</TableHead>
-                    {participants.map((p) => (
-                      <TableHead key={p.id} className="text-center">
-                        {p.name}
-                      </TableHead>
-                    ))}
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {categories.map((category) => (
-                    <TableRow key={category.id}>
-                      <TableCell className="font-medium">{category.name}</TableCell>
-                      {participants.map((participant) => (
-                        <TableCell key={`${participant.id}-${category.id}`} className="text-center">
-                          <Select
-                            value={getScore(participant.id, category.id)}
-                            onValueChange={(value) =>
-                              updateScore(participant.id, category.id, Number.parseFloat(value))
-                            }
-                          >
-                            <SelectTrigger className="w-24 mx-auto">
-                              <SelectValue placeholder="Voto" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {scoreOptions.map((score) => (
-                                <SelectItem key={score} value={score}>
-                                  {score}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        </TableCell>
+              <div className="border rounded-lg">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="w-[150px] sticky left-0 bg-white z-10 border-r">Categoria</TableHead>
+                      {participants.map((p) => (
+                        <TableHead key={p.id} className="text-center min-w-[120px]">
+                          {p.name}
+                        </TableHead>
                       ))}
                     </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+                  </TableHeader>
+                  <TableBody>
+                    {categories.map((category) => (
+                      <TableRow key={category.id}>
+                        <TableCell className="font-medium sticky left-0 bg-white z-10 border-r">
+                          {category.name}
+                        </TableCell>
+                        {participants.map((participant) => (
+                          <TableCell key={`${participant.id}-${category.id}`} className="text-center">
+                            <Select
+                              value={getScore(participant.id, category.id)}
+                              onValueChange={(value) =>
+                                updateScore(participant.id, category.id, Number.parseFloat(value))
+                              }
+                            >
+                              <SelectTrigger className="w-24 mx-auto">
+                                <SelectValue placeholder="Voto" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {scoreOptions.map((score) => (
+                                  <SelectItem key={score} value={score}>
+                                    {score}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </TableCell>
+                        ))}
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
             </div>
           )}
 
@@ -334,7 +389,7 @@ export default function RestaurantReviewForm() {
               Genera Voto
             </Button>
             <Button onClick={handleSaveReview} variant="secondary" className="flex-1">
-              Salva Recensione
+              {editingReviewId ? "Aggiorna Recensione" : "Salva Recensione"}
             </Button>
           </div>
 
@@ -373,7 +428,7 @@ export default function RestaurantReviewForm() {
               {savedReviews.map((review) => (
                 <Card key={review.id} className="p-4">
                   <div className="flex justify-between items-start">
-                    <div>
+                    <div className="flex-1">
                       <h3 className="text-lg font-semibold">{review.restaurantName}</h3>
                       <p className="text-sm text-gray-500">
                         Salvato il: {new Date(review.createdAt).toLocaleDateString()}
@@ -393,6 +448,9 @@ export default function RestaurantReviewForm() {
                       </div>
                     </div>
                     <div className="flex gap-2">
+                      <Button variant="outline" size="icon" onClick={() => setSelectedReview(review)}>
+                        <Eye className="h-4 w-4" />
+                      </Button>
                       <Button variant="destructive" size="icon" onClick={() => handleDeleteSavedReview(review.id)}>
                         <Trash2 className="h-4 w-4" />
                       </Button>
@@ -404,6 +462,10 @@ export default function RestaurantReviewForm() {
           )}
         </CardContent>
       </Card>
+
+      {selectedReview && (
+        <ReviewDetailsModal review={selectedReview} onClose={() => setSelectedReview(null)} onEdit={handleEditReview} />
+      )}
     </div>
   )
 }
